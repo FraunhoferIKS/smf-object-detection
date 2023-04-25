@@ -1,0 +1,10 @@
+matplotlib 
+pyyaml 
+seaborn 
+numpy 
+scikit-learn 
+scikit-image
+tqdm
+bbox-visualizer 
+opencv-python 
+pycocotools>=2.0.2

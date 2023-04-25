@@ -1,0 +1,9 @@
+venv/
+.vscode/
+src/__pycache__/
+__pycache__/
+IV23/annotations/
+IV23/performance_analysis/
+IV23/results/
+IV23/VOC2010/
+singularity/
