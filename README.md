@@ -1,6 +1,8 @@
 # Preventing Errors in Person Detection: A Part-Based Self-Monitoring Framework
 
-This repository contains the code for re-producing the experiments of the paper "Preventing Errors in Person Detection: A Part-Based Self-Monitoring Framework" accepted at IEEE IV 2023. Training and testing has been done with [mmdetection](https://github.com/open-mmlab/mmdetection). All models (both person detectors and body-part detectors) have been trained on a reduced training set of COCO2014 where [DensePose](http://densepose.org/) annotations (body-parts) for all visible persons are available. For evaluation, the COCO2014 validation split and the PascalVOC2010 trainval split has been used.
+This repository contains the code for re-producing the experiments of the paper "Preventing Errors in Person Detection: A Part-Based Self-Monitoring Framework" to be presented at [IEEE IV 2023](https://2023.ieee-iv.org/). 
+
+Training and testing has been done with [mmdetection](https://github.com/open-mmlab/mmdetection). All models (both person detectors and body-part detectors) have been trained on a reduced training set of COCO2014 where [DensePose](http://densepose.org/) annotations (body-parts) for all visible persons are available. For evaluation, the COCO2014 validation split and the PascalVOC2010 trainval split has been used.
 
 ![](illustration.jpg)
 
@@ -108,6 +110,10 @@ By running the following script, you can reproduce the per-image and per-object 
 ```
 $ ./scripts/run_experiments.sh
 ```
+
+# Purpose of this project
+
+This software was solely developed for and published as part of the publication cited above. It will neither be maintained nor monitored in any way.
 
 # Citation
 
