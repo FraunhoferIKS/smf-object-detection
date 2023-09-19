@@ -236,7 +236,7 @@ def fuse_unmatched_parts(FNS):
             
     return boxes, mean_scores
 
-def inference(args, model_person, model_parts, img):
+def demo(args, model_person, model_parts, img):
     
     # bbox settings
     bbox_alpha=0.5
@@ -318,12 +318,15 @@ def main():
     
     img = cv2.imread(args.image_path)
     
-    img = inference(
+    img = demo(
         args=args, 
         model_person=model_person, 
         model_parts=model_parts,
         img=img
         )
+    
+    if args.out is not None:
+        cv2.imwrite(args.out, img)
     
 def parse_args():
     
