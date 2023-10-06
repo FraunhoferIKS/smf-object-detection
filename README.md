@@ -28,21 +28,21 @@ The code has been tested with Python 3.8, PyTorch 1.9.0, and CUDA 11.1.
 ## Prepare Submodule
 
 ```
-$ git submodule init
-$ git submodule update
+git submodule init
+git submodule update --recursive --remote
 ```
 
 ## Create and activate virtual environment
 
 ```
-$ python3 -m venv venv
-$ source venv/bin/activate
+python3 -m venv venv
+source venv/bin/activate
 ```
 
 ## Install dependencies
 
 ```
-$ ./install.sh
+./install.sh
 ```
 
 ## Add the project path to environment variables
@@ -50,7 +50,7 @@ $ ./install.sh
 Open ~/.bashrc, and add the following line to the end.
 
 ```
-$ export PYTHONPATH=<path_of_project>:$PYTHONPATH
+export PYTHONPATH=<path_of_project>:$PYTHONPATH
 ```
 
 # Workflow
@@ -66,7 +66,7 @@ Download [COCO2014](https://cocodataset.org/#download), [DensePose](http://dense
 Copy ```voc2coco.py``` from [here](https://github.com/roboflow/voc2coco) into your working directory and run
 
 ```
-$ python3 voc2coco.py --ann_dir <path-to-voc>/Annotations --ann_ids <path-to-voc>/ImageSets/Main/trainval.txt --labels <path-to-voc>/labels.txt --output <path-to-anns-dir>/voc2010_trainval_cocoformat.json --ext xml
+python3 voc2coco.py --ann_dir <path-to-voc>/Annotations --ann_ids <path-to-voc>/ImageSets/Main/trainval.txt --labels <path-to-voc>/labels.txt --output <path-to-anns-dir>/voc2010_trainval_cocoformat.json --ext xml
 ```
 
 2. Prepare Annotations for training and evaluating
@@ -75,7 +75,7 @@ Generates annotations for person detector (only 1 class: person), body-parts det
 Replace dataset annotation paths in the script with your own.
 
 ```
-$ ./scripts/create_annotations.sh
+./scripts/create_annotations.sh
 ```
 
 ## Training
@@ -84,7 +84,7 @@ You can train the models with [mmdetection](https://github.com/open-mmlab/mmdete
 Replace the paths in the "TO MODIFY"-section of the config file with your own and run:
 
 ```
-$ python mmdetection/tools/train.py <path-to-config-python-file>
+python mmdetection/tools/train.py <path-to-config-python-file>
 ```
 
 ## Store detections for further evaluations and experiments
@@ -92,7 +92,7 @@ $ python mmdetection/tools/train.py <path-to-config-python-file>
 Replace paths with your own and run:
 
 ```
-$ ./scripts/store_detections.sh
+./scripts/store_detections.sh
 ```
 
 ## Run Analysis to calculate confidence thresholds
@@ -100,7 +100,7 @@ $ ./scripts/store_detections.sh
 By running the following script, the confidence thresholds that have best precision-recall trade-off are computed and visualized. These thresholds are then later needed to perform the runtime monitoring experiments.
 
 ```
-$ ./scripts/run_analysis.sh
+./scripts/run_analysis.sh
 ```
 
 ## Run Experiments
@@ -108,7 +108,7 @@ $ ./scripts/run_analysis.sh
 By running the following script, you can reproduce the per-image and per-object experiment, where the final results are visualized in a table formatted in latex. 
 
 ```
-$ ./scripts/run_experiments.sh
+./scripts/run_experiments.sh
 ```
 
 # Purpose of this project
