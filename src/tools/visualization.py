@@ -24,7 +24,16 @@ def visualize_distribution(y: list, mapping: dict, save_dir: str, filename: str,
     ax.set_xlabel('Classes')
     plt.savefig(os.path.join(save_dir, filename))
 
-def draw_bounding_boxes(img: np.array, boxes: np.array, mapping: Dict=None, labels: List[int]=None, scores: List[float]=None, color: Any = (255, 255, 255)):
+def draw_bounding_boxes(img: np.array, 
+                        boxes: np.array, 
+                        mapping: Dict=None, 
+                        labels: List[int]=None, 
+                        scores: List[float]=None, 
+                        color: Any = (255, 255, 255),
+                        alpha: float=0.5, 
+                        is_opaque: bool=True, 
+                        top: bool=True
+                        ):
 
     vis_boxes = []
     boxes = boxes.astype(int)
@@ -33,7 +42,7 @@ def draw_bounding_boxes(img: np.array, boxes: np.array, mapping: Dict=None, labe
             vis_boxes.append(boxes[i, :].tolist())
         
     if len(vis_boxes):
-        img = bbv.draw_multiple_rectangles(img, vis_boxes, bbox_color=color)
+        img = bbv.draw_multiple_rectangles(img, vis_boxes, bbox_color=color, is_opaque=is_opaque, alpha=alpha)
 
         class_labels = None
 

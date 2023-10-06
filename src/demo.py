@@ -1,20 +1,28 @@
 import argparse
 import cv2
-from typing import List, Dict, Any
+from typing import List, Dict, Tuple
 import numpy as np
-from mmcv import Config
-
-from mmdet.apis import inference_detector, init_detector
 from sklearn.cluster import DBSCAN
 
-from src.tools.utils import bbox_area, bbox_intersection, discard_part_detection
+import torch.nn as nn
+from mmcv import Config
+from mmdet.apis import inference_detector, init_detector
 
-import bbox_visualizer as bbv
-
-OVERLAP_THRESHOLD_FN = 0.99
-OVERLAP_THRESHOLD_FP = 0.1
+from src.tools.utils import bbox_area, compute_center, bbox_intersection, discard_part_detection, get_minimal_enclosing_bbox
+from src.tools.visualization import draw_bounding_boxes
 
 def smf(detections: Dict) -> Dict:
+    """Self-Monitoring Framework: Monitor that takes a dictionary with person and part detections and groups them into potential TP, FP, FN detections
+
+    Args:
+        detections (Dict): Person (boxes + scores) and body-parts (boxes, scores, labels) detections 
+
+    Returns:
+        Dict: Predicted True Positives, False Positive, and False Negative detections
+    """
+
+    OVERLAP_THRESHOLD_FN = 0.99
+    OVERLAP_THRESHOLD_FP = 0.1
     
     bbox_person = detections['person']['boxes']
     scores_person = detections['person']['scores']
@@ -35,11 +43,13 @@ def smf(detections: Dict) -> Dict:
     for i_person in range(bbox_person.shape[0]):
         b_person = bbox_person[i_person, :]
         is_TP = False
+
         for i_part in range(bbox_parts.shape[0]):
             overlap = bbox_intersection(bbox_parts[i_part, :], b_person, x1y1x2y2=False)
             area_part = bbox_area(bbox_parts[i_part, :], x1y1x2y2=False)
             area_person = bbox_area(b_person, x1y1x2y2=False)
             area = min(area_part, area_person)
+
             if overlap >= (1.-OVERLAP_THRESHOLD_FP)*area:
                 b_person = b_person.tolist()
                 d_TP["boxes"].append([b_person[0], b_person[1], b_person[2], b_person[3]])
@@ -47,6 +57,7 @@ def smf(detections: Dict) -> Dict:
                 d_TP["labels"].append(0)
                 is_TP = True
                 break
+
         if not is_TP:
             b_person = b_person.tolist()
             d_FP["boxes"].append([b_person[0], b_person[1], b_person[2], b_person[3]])
@@ -57,14 +68,17 @@ def smf(detections: Dict) -> Dict:
     for i_part in range(bbox_parts.shape[0]):
         is_FN = True
         b_part = bbox_parts[i_part, :]
+
         for i_person in range(bbox_person.shape[0]):
             overlap = bbox_intersection(b_part, bbox_person[i_person, :], x1y1x2y2=False)
             area_part = bbox_area(b_part, x1y1x2y2=False)
             area_person = bbox_area(bbox_person[i_person, :], x1y1x2y2=False)
             area = min(area_part, area_person)
+
             if overlap >= (1.-OVERLAP_THRESHOLD_FN)*area:
                 is_FN = False
                 break
+
         if is_FN:
             b_part = b_part.tolist()
             d_FN["boxes"].append([b_part[0], b_part[1], b_part[2], b_part[3]])
@@ -77,74 +91,17 @@ def smf(detections: Dict) -> Dict:
             
     return {"TPs": d_TP, "FPs": d_FP, "FNs": d_FN}
 
-def compute_center(box, x1y1x2y2=True):
-    if x1y1x2y2:
-        c_x = box[0]+0.5*(box[2]-box[0])
-        c_y = box[1]+0.5*(box[3]-box[1])
-    else:
-        c_x = box[0]+0.5*box[2]
-        c_y = box[1]+0.5*box[3]
-    return [c_x, c_y]
-
-def draw_bounding_boxes(img: np.array, boxes: np.array, mapping: Dict=None, labels: List[int]=None, scores: List[float]=None, 
-                        color: Any = (255, 255, 255), text: List=None, alpha: float=0.5, is_opaque: bool=True, top: bool=True):
-
-    vis_boxes = []
-    boxes = boxes.astype(int)
-    if len(boxes.shape) == 2:
-        for i in range(boxes.shape[0]):
-            vis_boxes.append(boxes[i, :].tolist())
-        
-    if len(vis_boxes):
-        
-        img = bbv.draw_multiple_rectangles(img, vis_boxes, bbox_color=color, is_opaque=is_opaque, alpha=alpha)
-
-        class_labels = None
-
-        if labels is not None and mapping is not None:
-            class_labels = [mapping[i] for i in labels]
-            
-        elif labels is not None and mapping is None:
-            class_labels = [f'Person (ID:{int(item)})' for item in labels]
-            if text is not None:
-                class_labels = [item+f'{str(text[i])}' for i, item in enumerate(class_labels)]
-
-        if scores is not None and labels is not None and mapping is not None:
-            class_labels = [f'{item}: {np.round(scores[i]*100, decimals=1)}%' for i, item in enumerate(class_labels)]
-
-        if class_labels is not None:
-            img = bbv.add_multiple_labels(img, class_labels, vis_boxes, top=top, text_bg_color=color)
-
-    return img
-
-def get_minimal_enclosing_bbox(boxes: np.array, x1y1x2y2=True):
-    
-    if not x1y1x2y2:
-        boxes[:, 2] = boxes[:, 0] + boxes[:, 2]
-        boxes[:, 3] = boxes[:, 1] + boxes[:, 3]
-    
-    min_x = float('inf')
-    min_y = float('inf')
-    max_x = float('-inf')
-    max_y = float('-inf')
-    
-    for i in range(boxes.shape[0]):
-        x1, y1, x2, y2 = boxes[i, :]
-        min_x = min(min_x, x1)
-        min_y = min(min_y, y1)
-        max_x = max(max_x, x2)
-        max_y = max(max_y, y2)
-        
-    width = max_x - min_x
-    height = max_y - min_y
-    
-    if x1y1x2y2:
-        enclosing_box = [min_x, min_y, max_x, max_y]
-    else: 
-        enclosing_box = [min_x, min_y, width, height]
-    return enclosing_box
-
 def process_detections(detections: List[np.array], score_threshold_person: float=None, score_thresholds_parts: List[float]=None) -> Dict:   
+    """Takes detections from mmdetection model as input and outputs detections in new format,to make it also compatible with multilabel model
+
+    Args:
+        detections (List[np.array]): person/body-parts detections
+        score_threshold_person (float, optional): Score threshold for class person. Defaults to None.
+        score_thresholds_parts (List[float], optional): per-class score threshold for body-parts. Defaults to None.
+
+    Returns:
+        Dict: output detections in new format
+    """
     
     scores_person, scores_parts = None, None
     bboxes_person, bboxes_parts = None, None
@@ -203,16 +160,27 @@ def process_detections(detections: List[np.array], score_threshold_person: float
 
     return {"person": {"boxes": bboxes_person, "scores": scores_person}, "parts": {"boxes": bboxes_parts, "scores": scores_parts, "labels": labels_parts}}
 
-def fuse_unmatched_parts(FNS):
+def fuse_unmatched_parts(FNS: np.array) -> Tuple[np.array, np.array]:
+    """Clusters unmatched body-parts detections and for each cluster, a new enclosing bbox is calculated with a confidence score averaged over the scores of the cluster
+
+    Args:
+        FNS (np.array): Unmatched body-parts detections (potential False Negatives)
+
+    Returns:
+        Tuple[np.array, np.array]: enclosing bboxes with average scores
+    """
 
     # compute center points
     l_centers = np.array([compute_center(FNS[i, :-1].tolist(), x1y1x2y2=True) for i in range(FNS.shape[0])])
     # cluster points
-    dbscan = DBSCAN(eps=500, min_samples=1)
+    dbscan = DBSCAN(eps=500, # maximum distance between two samples for one to be considered as in the neighbourhood of the other
+                    min_samples=1, # the number of samples in a neighbourhood for a point to be considered as a core point
+                    metric='euclidean'
+                    )
     # Fit the DBSCAN object to the data
     dbscan.fit(l_centers)
     # Get the cluster labels
-    c_labels = dbscan.labels_
+    c_labels = dbscan.labels_ # cluster labels for each point in the dataset given to fit(), noisy samples are given the label -1
     valid = c_labels >= 0
     
     boxes = np.empty(shape=(0, 4))
@@ -223,20 +191,25 @@ def fuse_unmatched_parts(FNS):
         s_c_labels = set(c_labels)
         
         for i in s_c_labels:
+            if i < 0:
+                continue
             keep = c_labels == i
             c_boxes = FNS[:, :-1][keep]
-            if c_boxes.shape[0] > 1:
+            if c_boxes.shape[0] > 1: # only use cluster with more than 1 point to reduce ghost body-parts
                 # enclosing_score = np.expand_dims(np.expand_dims(FNS[:, -1][keep], axis=1).mean(0), axis=0)
                 enclosing_score = np.expand_dims(FNS[:, -1][keep], axis=1).mean(0)
                 enclosing_box = np.expand_dims(get_minimal_enclosing_bbox(boxes=c_boxes), axis=0)
                 boxes = np.concatenate((boxes, enclosing_box), axis=0)
                 mean_scores = np.concatenate((mean_scores, enclosing_score), axis=0)
-                # boxes.append(enclosing_box)
-                # mean_scores.append(enclosing_score)
             
     return boxes, mean_scores
 
-def demo(args, model_person, model_parts, img):
+def demo(args, model_person: nn.Module, model_parts: nn.Module, img: np.array) -> np.array:
+    """Runs the demo on a single image and outputs an image with respective detections
+
+    Returns:
+        np.array: image with detections
+    """
     
     # bbox settings
     bbox_alpha=0.5
@@ -261,7 +234,7 @@ def demo(args, model_person, model_parts, img):
             boxes=checked_output["TPs"]["boxes"], 
             scores=checked_output["TPs"]["scores"],
             labels=np.zeros_like(checked_output["TPs"]["scores"]),
-            mapping={0: "True Positive"},
+            mapping={0: "TP"},
             color=(0, 255, 0),
             is_opaque=bbox_is_opaque,
             alpha=bbox_alpha,
@@ -275,7 +248,7 @@ def demo(args, model_person, model_parts, img):
             boxes=checked_output["FPs"]["boxes"], 
             scores=checked_output["FPs"]["scores"],
             labels=np.zeros_like(checked_output["FPs"]["scores"]),
-            mapping={0: "False Positive"},
+            mapping={0: "FP"},
             color=(255, 0, 0),
             is_opaque=bbox_is_opaque,
             alpha=bbox_alpha,
@@ -293,7 +266,7 @@ def demo(args, model_person, model_parts, img):
                     boxes=enclosing_boxes, 
                     scores=enclosing_scores,
                     labels=np.zeros_like(enclosing_scores),
-                    mapping={0: "False Negative"},
+                    mapping={0: "FN"},
                     color=(0, 0, 255),
                     is_opaque=bbox_is_opaque,
                     alpha=bbox_alpha,

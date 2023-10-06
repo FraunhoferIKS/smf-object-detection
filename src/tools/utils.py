@@ -51,6 +51,17 @@ def discard_part_detection(labels: np.array, scores: np.array, score_thresholds_
     keep = [True if score >= thresh else False for (score, thresh) in zip(scores, per_class_thresh)]
     return keep
 
+def compute_center(box, x1y1x2y2=True) -> List:
+
+    if x1y1x2y2:
+        c_x = box[0]+0.5*(box[2]-box[0])
+        c_y = box[1]+0.5*(box[3]-box[1])
+    else:
+        c_x = box[0]+0.5*box[2]
+        c_y = box[1]+0.5*box[3]
+
+    return [c_x, c_y]
+
 def bbox_area(box, x1y1x2y2=True):
     if x1y1x2y2:
         area = (box[2]-box[0])*(box[3]-box[1])
@@ -159,3 +170,39 @@ def get_minimal_bbox(Mask: np.array, body_part: int):
                 Mask[r, c] = body_part
 
     return Mask
+
+def get_minimal_enclosing_bbox(boxes: np.array, x1y1x2y2: bool=True) -> List:
+    """Takes a numpy array of bboxes and computes a new bbox box that encloses all bboxes
+
+    Args:
+        boxes (np.array): bboxes of detections
+        x1y1x2y2 (bool, optional): Bbox format. Defaults to True.
+
+    Returns:
+        List: Minimal bbox that encloses all given bboxes
+    """
+    
+    if not x1y1x2y2:
+        boxes[:, 2] = boxes[:, 0] + boxes[:, 2]
+        boxes[:, 3] = boxes[:, 1] + boxes[:, 3]
+    
+    min_x = float('inf')
+    min_y = float('inf')
+    max_x = float('-inf')
+    max_y = float('-inf')
+    
+    for i in range(boxes.shape[0]):
+        x1, y1, x2, y2 = boxes[i, :]
+        min_x = min(min_x, x1)
+        min_y = min(min_y, y1)
+        max_x = max(max_x, x2)
+        max_y = max(max_y, y2)
+        
+    width = max_x - min_x
+    height = max_y - min_y
+    
+    if x1y1x2y2:
+        enclosing_box = [min_x, min_y, max_x, max_y]
+    else: 
+        enclosing_box = [min_x, min_y, width, height]
+    return enclosing_box
