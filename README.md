@@ -111,6 +111,14 @@ By running the following script, you can reproduce the per-image and per-object 
 ./scripts/run_experiments.sh
 ```
 
+## Demo
+
+Run the following script to visualize the output of the monitor
+
+```
+./scripts/run_monitor_on_single_image.sh
+```
+
 # Purpose of this project
 
 This software was solely developed for and published as part of the publication cited above. It will neither be maintained nor monitored in any way.
